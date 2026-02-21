@@ -32,7 +32,7 @@ moment = pm.moment_for_circle(mass, 0, radius)
 player_body = pm.Body(mass, moment)
 player_body.position = (screen.get_width() / 2, 0)
 player_shape = pm.Circle(player_body, radius)
-player_shape.elasticity = 1.0  # Bounciness (0 to 1)
+player_shape.elasticity = 0.85  # Bounciness (0 to 1)
 player_shape.friction = 0.3
 
 space.add(player_body, player_shape)
@@ -59,49 +59,25 @@ class Peg(pg.sprite.Sprite):
 all_pegs = pg.sprite.Group()
 all_borders = []
 
-def populate_pegs(rows=5, cols=5, spacing=40):
-    # clear all pegs
-    for peg in all_pegs:
-        space.remove(peg.shape, peg.body)
-    all_pegs.empty()
-    for border in all_borders:
-        space.remove(border)
-    all_borders.clear()
+horizontal_spacing = 250 
+vertical_spacing = horizontal_spacing * 0.866 
+last_generated_y = 200 
+rows_generated = 0
+grid_width = 0
 
-    # define variables
-    start_x=(screen.get_width() - (cols * spacing)) / 2
-    start_y=screen.get_height() / 4
+def spawn_peg_row(y_pos, row_index, cols=15):
+    grid_width = (cols - 1) * horizontal_spacing
+    start_x = (screen.get_width() - grid_width) / 2
 
-    # add new pegs
-    for row in range(rows):
-        for col in range(cols):
-            x = start_x + (col * spacing)
-            if row % 2 == 1:  
-                x += spacing / 2
-            y = start_y + (row * spacing * 0.866)
+    for col in range(cols):
+        x = start_x + (col * horizontal_spacing)
+
+        if row_index % 2 == 1:
+            x += horizontal_spacing / 2
         
-            new_peg = Peg(space, x, y)
-            all_pegs.add(new_peg)
+        new_peg = Peg(space, x, y_pos)
+        all_pegs.add(new_peg)
 
-    # walls
-    left_x = start_x - (spacing / 2)
-    right_x = start_x + (cols * spacing)
-    bottom_y = start_y + (rows * spacing * 0.866) + spacing
-
-    walls = [
-        ((left_x, start_y), (left_x, bottom_y)), #left wall
-        ((right_x, start_y), (right_x, bottom_y)), #right wall
-        ((left_x, bottom_y), (right_x, bottom_y)) #bottom floor
-    ]
-
-    for start, end in walls:
-        border_shape = pm.Segment(space.static_body, start, end, 5)
-        border_shape.elasticity = 0.5
-        border_shape.friction = 0.5
-        space.add(border_shape)
-        all_borders.append(border_shape)
-
-populate_pegs(15,10,250)
 
 # camera class
 class Camera():
@@ -124,12 +100,18 @@ cam = Camera(screen.get_width(), screen.get_height())
 cam.zoom = 0.5
 cam.x = screen.get_width() / 2
 cam.y = screen.get_height() / 2
+debug_cam_toggle = False
 
 while running:
     # to exit (idk why this isnt already just a thing wtf guys)
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
+        if event.type == pg.KEYDOWN and event.key == pg.K_1:
+            if debug_cam_toggle == False:
+                debug_cam_toggle = True
+            else:
+                debug_cam_toggle = False
         if event.type == pg.MOUSEWHEEL:
             cam.zoom += event.y * 0.05
             cam.zoom = max(0.1, min(cam.zoom, 2.0))
@@ -146,17 +128,34 @@ while running:
     keys = pg.key.get_pressed()
     speed = 500 * dt 
 
-    if keys[pg.K_w]:
-        cam.y -= speed / cam.zoom
-    if keys[pg.K_s]:
-        cam.y += speed / cam.zoom
-    if keys[pg.K_a]:
-        cam.x -= speed / cam.zoom
-    if keys[pg.K_d]:
-        cam.x += speed / cam.zoom
+    if debug_cam_toggle == True:
+        if keys[pg.K_w]:
+            cam.y -= speed / cam.zoom
+        if keys[pg.K_s]:
+            cam.y += speed / cam.zoom
+        if keys[pg.K_a]:
+            cam.x -= speed / cam.zoom
+        if keys[pg.K_d]:
+            cam.x += speed / cam.zoom
+    else:
+        cam.x = screen.get_width() / 2
+        cam.y = player_body.position.y
+
     if keys[pg.K_r]:
         player_body.position = (screen.get_width() / 2, 0)
         player_body.velocity = (0,0)
+
+    # gen new pegs and delete old ones
+    if player_body.position.y > last_generated_y - 1000:
+        for _ in range(5): 
+            spawn_peg_row(last_generated_y, rows_generated)
+            last_generated_y += vertical_spacing
+            rows_generated += 1
+
+    for peg in all_pegs:
+        if peg.body.position.y < player_body.position.y - 1500:
+            space.remove(peg.shape, peg.body)
+            peg.kill()
 
     # render stuff
     view_pos = cam.apply(player_body.position)

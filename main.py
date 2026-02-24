@@ -51,6 +51,10 @@ rows_gen_top = 0
 bomb_timer = 10.0
 depth = 0
 top_depth = 0
+p_pos = [0,0]
+is_dead = False
+death_timer = 0.0
+death_delay = 2.0
 
 def spawn_peg_row(y_pos, row_index, cols=15):
     grid_width = (cols - 1) * horizontal_spacing
@@ -62,9 +66,11 @@ def spawn_peg_row(y_pos, row_index, cols=15):
         all_pegs.add(new_peg)
 
 def reset():
-    global last_generated_y_bottom, last_generated_y_top, rows_gen_bottom, rows_gen_top, at_rest
+    global last_generated_y_bottom, last_generated_y_top, rows_gen_bottom, rows_gen_top, at_rest, bomb_timer, death_timer, is_dead, top_depth
     player_body.position = (WIDTH / 2, -200)
     player_body.velocity = (0, 0)
+    bomb_timer = 10.0
+    death_timer = death_delay
     for peg in all_pegs:
         space.remove(peg.shape, peg.body)
         peg.kill()
@@ -99,8 +105,6 @@ while running:
                 mouse_pos = pg.mouse.get_pos()
                 
                 # Calculate direction from player to mouse
-                # Note: We use cam.apply in reverse logic or just simple vector math
-                p_pos = cam.apply(player_body.position)
                 dx = mouse_pos[0] - p_pos[0]
                 dy = mouse_pos[1] - p_pos[1]
                     
@@ -117,10 +121,23 @@ while running:
             player_body.velocity = (0, 0)
             player_body.angular_velocity = 0
 
-    space.step(dt)
+    p_pos = cam.apply(player_body.position)
+
+    if is_dead:
+        print(death_timer)
+        death_timer -= dt
+        if death_timer <= 0:
+            is_dead = False
+            reset() 
+    else:
+        space.step(dt)
 
     depth = int(player_body.position.y)+200
     if depth > top_depth: top_depth = depth
+
+    board_center = (WIDTH / 2, player_body.position.y)
+    distance_from_center = player_body.position.get_distance(board_center)
+    if distance_from_center > 2000: is_dead = True
 
     if abs(player_body.velocity.x) < 5 or abs(player_body.velocity.y) < 10:
         player_body.apply_impulse_at_local_point((r.randint(-10, 10), 0))
@@ -143,8 +160,7 @@ while running:
     if not at_rest:
         bomb_timer -= dt
         if bomb_timer <= 0:
-            bomb_timer = 10.0
-            reset()
+            is_dead = True
 
     # Generation and unrendering Logic
     if player_body.position.y > last_generated_y_bottom - 2000:
@@ -171,7 +187,8 @@ while running:
     scaled_size = int(80 * cam.zoom)
     if scaled_size > 0:
         scaled_player = pg.transform.scale(player_surf, (scaled_size, scaled_size))
-        screen.blit(scaled_player, (view_pos[0] - scaled_size // 2, view_pos[1] - scaled_size // 2))
+        if not is_dead: 
+            screen.blit(scaled_player, (view_pos[0] - scaled_size // 2, view_pos[1] - scaled_size // 2))
 
     # Render Pegs
     for peg in all_pegs:
@@ -184,10 +201,17 @@ while running:
     # Render Text
     score_surf = font.render(f"Depth: {depth}", True, (255, 255, 255))
     screen.blit(score_surf, (20, 20))
+
     top_score_surf = font.render(f"Record Depth: {top_depth}", True, (255, 255, 255))
     screen.blit(top_score_surf, (20, 60))
-    timer_text = font.render(f"Time: {int(bomb_timer)}s", True, (255, 255, 0))
-    screen.blit(timer_text, (WIDTH - 180, 20))
+
+    if not is_dead:
+        timer_text = font.render(f"{bomb_timer:.1f}", True, (255, 255, 0))
+        if bomb_timer < 3.0:
+            timer_text = font.render(f"{bomb_timer:.1f}", True, (255, 0, 0))
+    else:
+        timer_text = font.render(f"BOOM!! ({death_timer:.1f})", True, (255, 255, 255))
+    screen.blit(timer_text, (p_pos[0], p_pos[1] - 50))
 
     pg.display.flip()
 

@@ -1,7 +1,7 @@
 import pygame as pg
 
 # Screen settings
-WIDTH, HEIGHT = 1280, 720
+WIDTH, HEIGHT = 1920, 1080
 FPS = 60
 FLAGS = pg.FULLSCREEN | pg.SCALED
 

@@ -142,24 +142,30 @@ while running:
                     debug_cam_toggle = True
                 else:
                     debug_cam_toggle = False
-        if event.type == pg.MOUSEBUTTONDOWN and at_rest:
-            if event.button == 1:  # Left click
-                at_rest = False
 
-
+        if at_rest:
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left click
+                    at_rest = False
+                    
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_a:
+                    player_body.velocity -= (50, 0)
+                if event.key == pg.K_d:
+                    player_body.velocity += (50, 0)
+                if event.key not in [pg.K_a, pg.K_d]:
+                    player_body.velocity = (0, 0)
+            
         if event.type == pg.MOUSEWHEEL:
             cam.zoom += event.y * 0.01
             cam.zoom = max(0.01, min(cam.zoom, 2.0))
             print(f"Zoom: {cam.zoom:.2f}")
+
     # wipe screen
     screen.fill("black")
 
     draw_options.transform = cam.get_pm_transform()
     space.debug_draw(draw_options)
-
-    if at_rest:
-        player_body.position = (screen.get_width() / 2, -200) #also change reset() func
-        player_body.velocity = (0, 0)
 
     dt = clock.tick(60) / 1000
     space.step(dt)

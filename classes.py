@@ -5,16 +5,24 @@ from config import *
 class Peg(pg.sprite.Sprite):
     def __init__(self, space, x, y, surf):
         super().__init__()
-        self.body = pm.Body(body_type=pm.Body.STATIC)
-        self.body.position = (x, y)
-        self.shape = pm.Circle(self.body, PEG_RADIUS)  
-        self.shape.elasticity = 1.0
-        self.shape.friction = 0.3
-        space.add(self.body, self.shape)
 
-        self.original_image = surf
-        self.image = self.original_image
+        self.health = 2  # starting health
+        self.max_health = self.health
+
+        self.original_image = surf.copy()
+        self.image = self.original_image.copy()
         self.rect = self.image.get_rect(center=(x, y))
+
+        self.body = pm.Body(body_type=pm.Body.STATIC)
+        self.body.position = x, y
+
+        self.shape = pm.Circle(self.body, PEG_RADIUS)
+
+        self.shape.elasticity = 0.8
+        self.shape.friction = 0.5
+        self.shape.collision_type = 2
+
+        space.add(self.body, self.shape)
 
 class Camera:
     def __init__(self, screen_width, screen_height):
@@ -33,3 +41,11 @@ class Camera:
         return (pm.Transform.translation(self.screen_width / 2, self.screen_height / 2) @
                 pm.Transform.scaling(self.zoom) @
                 pm.Transform.translation(-self.x, -self.y))
+    
+class GameState:
+    AIMING = "aiming"
+    DIVING = "diving"
+    DEAD = "dead"
+
+# Set the initial state
+current_state = GameState.AIMING
